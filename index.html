@@ -3,16 +3,187 @@
 <meta charset="utf-8">
 <title>Trapped Knight</title>
 </head><body>
-<style>#spiral td{width:25px;height:25px;text-align:center;font-size:80%;font-weight:bold}</style>
+<style>
+#spiral td{width:35px;height:25px;text-align:center;font-size:80%;font-weight:bold}
+#mover td{text-align:center}
+#mover button{font-size:200%;width:50px;height:50px}
+</style>
+
+Sequence:<select id="selSeq" onchange="run()"></select> &nbsp; Coordinates:<select id="selCoord" onchange="run()"></select><hr>
 
 <table id="spiral" border="2"></table>
 <div id="result"></div>
 
+<div style="position:absolute;top:0;right:0;background:#eee;border:1px solid black;padding:.5em">
+	<table id="mover">
+		<tr>
+			<td></td>
+			<td><button onclick="showY--;showBoard()">⇧</button></td>
+			<td></td>
+			<td><button onclick="showSize++;showBoard()">+</button></td>
+		</tr><tr>
+			<td><button onclick="showX--;showBoard()">⇦</button></td>
+			<td><button onclick="showX=showY=0;showBoard()">•</button></td>
+			<td><button onclick="showX++;showBoard()">⇨</button></td>
+		</tr><tr>
+			<td></td>
+			<td><button onclick="showY++;showBoard()">⇩</button></td>
+			<td></td>
+			<td><button onclick="showSize=Math.max(1,showSize-1);showBoard()">-</button></td>
+		</tr><tr>
+			<td colspan="4" id="moveCoords"></td>
+		</tr>
+	</table>
+</div>
+
 <script>
 "use strict";
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var Prime = {
+	_list : [2,3], // list of all primes
+	_more : function() { // calculate next prime
+		let n = this._list[this._list.length-1];
+		while(true) {
+			n += 2;
+			let fail = false;
+			let len = this._list.length;
+			for (let i=0; i<len; ++i) {
+				let p = this._list[i];
+				if (p*p > n) break;
+				if (n % p !== 0) continue;
+				fail = true;
+				break;
+			}
+			if (!fail) break;
+		}
+		this._list.push(n);
+	},
+
+	get : function(n) { // get nth prime number
+		while (n >= this._list.length) this._more();
+		return this._list[n];
+	},
+	is : function(n) { // is this number prime?
+		while (n > this._list[this._list.length-1]) this._more();
+		return this._list.some(p => n===p); // TODO: optimize
+	},
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var sequences = new Map;
+
+// returns the nth natural number
+sequences.set("Normal", {
+	get : function(n) {
+		return n;
+	},
+});
+
+
+
+// returns the nth number in the mathatrutgers' sequence
+sequences.set("Mathatrutgers", {
+	_list : [0,1],
+	_nextPrime : 0,
+	_lastComposite : 1,
+	_grow : function() {
+		let pp = Prime.get(this._nextPrime++);
+		// add pp non-primes...
+		for (let i=0; i<pp; ++i) {
+			this._lastComposite++;
+			while (Prime.is(this._lastComposite)) this._lastComposite++;
+			this._list.push(this._lastComposite);
+		}
+
+		this._list.push(pp);
+	},
+
+	get : function(n) {
+		while (!this._list[n]) this._grow();
+		return this._list[n];
+	},
+});
+
+// returns the nth number in the mathatrutgers' reverse sequence
+sequences.set("Reverse Mathatrutgers", {
+	_list : [0,1],
+	_nextPrime : 0,
+	_lastComposite : 1,
+	_grow : function() {
+		let pp = Prime.get(this._nextPrime++);
+		// add pp non-primes...
+		let temp = [];
+		for (let i=0; i<pp; ++i) {
+			this._lastComposite++;
+			while (Prime.is(this._lastComposite)) this._lastComposite++;
+			temp.push(this._lastComposite);
+		}
+		// in the opposite order
+		while (temp.length) this._list.push(temp.pop());
+
+		this._list.push(pp);
+	},
+
+	get : function(n) {
+		while (!this._list[n]) this._grow();
+		return this._list[n];
+	},
+});
+
+sequences.set("Bad Mathatrutgers", {
+	_list : [0,1],
+	_nextPrime : 0,
+	_lastComposite : 1,
+	_grow : function() {
+		let pp = Prime.get(this._nextPrime++);
+		for (let i=0; i<this._nextPrime+1; ++i) {
+			this._lastComposite++;
+			while (Prime.is(this._lastComposite)) this._lastComposite++;
+			this._list.push(this._lastComposite);
+		}
+
+		this._list.push(pp);
+	},
+
+	get : function(n) {
+		while (!this._list[n]) this._grow();
+		return this._list[n];
+	},
+});
+
+sequences.set("Bad Reverse Mathatrutgers", {
+	_list : [0,1],
+	_nextPrime : 0,
+	_lastComposite : 1,
+	_grow : function() {
+		let pp = Prime.get(this._nextPrime++);
+		let temp = [];
+		for (let i=0; i<this._nextPrime+1; ++i) {
+			this._lastComposite++;
+			while (Prime.is(this._lastComposite)) this._lastComposite++;
+			temp.push(this._lastComposite);
+		}
+		while (temp.length) this._list.push(temp.pop());
+
+		this._list.push(pp);
+	},
+
+	get : function(n) {
+		while (!this._list[n]) this._grow();
+		return this._list[n];
+	},
+});
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var coordsystems = new Map;
+
 // given a coordinate, returns the number in it. Square-shaped version
-function getNum_square(x,y) {
+coordsystems.set("Square", (x,y)=>{
 	let loop = Math.max(Math.abs(x),Math.abs(y));
 	let start = (2*loop-1)*(2*loop-1)+1;
 
@@ -22,9 +193,10 @@ function getNum_square(x,y) {
 	if (y === -loop) return start-x+3*loop-1;
 	if (x === -loop) return start+y+5*loop-1;
 	return start+x+7*loop-1;
-}
-// given a coordinate, return the number in it. Diamond-shaped version
-function getNum_diamond(x,y) {
+});
+
+// given a coordinate, returns the number in it. Diamond-shaped version
+coordsystems.set("Diamond", (x,y)=>{
 	let loop = Math.abs(x)+Math.abs(y);
 	let start = 4*loop*(loop-1)/2+2;
 
@@ -34,87 +206,29 @@ function getNum_diamond(x,y) {
 	if (x>0) return start+2*loop-x-1;
 	if (y<0) return start+3*loop+y-1;
 	return start+4*loop+x-1;
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var chosenSequence = null;
+var chosenCoords = null;
+function getNum(x,y) {
+	return chosenSequence.get( chosenCoords(x,y) );
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-
-
-var allPrimes = [2,3];
-var setPrimes = new Set(allPrimes);
-var biggestPrime = 3;
-
-function genPrimes() {
-	let i = biggestPrime;
-	while(true) {
-		++i;
-		if (allPrimes.some(p => i % p === 0)) continue;
-		biggestPrime = i;
-		allPrimes.push(i);
-		setPrimes.add(i);
-		return;
-	}
-}
-
-var ordered = [0,1];
-var orderedNextLoop = 0;
-var orderedLastComposite = 1;
-function growOrdered() {
-	let pp = allPrimes[orderedNextLoop++];
-	// add pp non-primes
-	for (let i=0; i<pp; ++i) {
-		orderedLastComposite++;
-		if (orderedLastComposite > biggestPrime) genPrimes();
-		while (setPrimes.has(orderedLastComposite)) orderedLastComposite++;
-		ordered.push(orderedLastComposite);
-	}
-	ordered.push(pp);
-}
-
-function getOrdered(num) {
-	while (!ordered[num]) growOrdered();
-	num = ordered[num];
-	return num;
-}
-
-
-function getNum_square_p(x,y) {
-	return getOrdered( getNum_square(x,y) );
-}
-function getNum_diamond_p(x,y) {
-	return getOrdered( getNum_diamond(x,y) );
-}
-
-
-var getNum;
-
-
-
-
-
-function showCenter(size) {
-	let table = document.getElementById("spiral");
-	for (let y=-size;y<=size;++y) {
-		let tr = document.createElement("tr");
-		for (let x=-size;x<=size;++x) {
-			let td = document.createElement("td");
-			td.textContent = getNum(x,y);
-			tr.appendChild(td);
-		}
-		table.appendChild(tr);
-	}
-}
-
-
-
-function solve(max=10000, echo=false) {
-	let visited = new Set();
+var visited = null;
+function solve(max=1000000, echo=false) {
 	let bestN, bestX, bestY;
+	let path = [];
 
 	let posX = 0, posY = 0;
 	let step = 1;
+	visited = new Set();
 	visited.add(getNum(0,0));
-	if (echo) console.log(`${step}. (${posX},${posY}): 1`);
+	path.push(getNum(0,0));
+	if (echo) console.log(`${step}. (${posX},${posY}): ${getNum(0,0)}`);
 
 	function tryNext(x,y) {
 		let num = getNum(x,y);
@@ -136,29 +250,65 @@ function solve(max=10000, echo=false) {
 		tryNext(posX-2,posY+1);
 		tryNext(posX+2,posY-1);
 		tryNext(posX+2,posY+1);
-		if (!bestN) {
-			document.getElementById("result").textContent = `trapped after step #${step} at (${posX},${posY}): ` + getNum(posX,posY);
-			return;
-		}
+		if (!bestN) break;
 		step++;
 		posX = bestX;
 		posY = bestY;
 		visited.add(bestN);
+		path.push(bestN);
 		if (echo) console.log(`${step}. (${bestX},${bestY}): ${bestN}`);
 	}
 
-	document.getElementById("result").textContent = `still free after step #${step} at (${posX},${posY}): ` + getNum(posX,posY);
+	let result = (bestN ? "still free" : "trapped") + ` after step #<b>${step}</b> at (${posX},${posY}): <b>${getNum(posX,posY)}</b>`;
+	document.getElementById("result").innerHTML = result + "<hr>PATH: " + path.join(", ") + (bestN ? "..." : ".");
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var showSize = 5;
+var showX = 0;
+var showY = 0;
+function showBoard() {
+	let table = document.getElementById("spiral");
+	table.innerHTML = "";
+	for (let dy=-showSize;dy<=showSize;++dy) {
+		let tr = document.createElement("tr");
+		for (let dx=-showSize;dx<=showSize;++dx) {
+			let td = document.createElement("td");
+			let n = getNum(dx+showX,dy+showY);
+			td.textContent = n;
+			if (!visited.has(n)) td.style.color = "red";
+			tr.appendChild(td);
+		}
+		table.appendChild(tr);
+	}
+
+	document.getElementById("moveCoords").textContent = `view centered at (${showX},${showY})`;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+sequences.forEach((func,name)=>{
+	let opt = document.createElement("option");
+	opt.text = name;
+	opt.value = name;
+	document.getElementById("selSeq").add(opt);
+});
+coordsystems.forEach((func,name)=>{
+	let opt = document.createElement("option");
+	opt.text = name;
+	opt.value = name;
+	document.getElementById("selCoord").add(opt);
+});
 
 
-
-//getNum = getNum_square;
-//getNum = getNum_diamond;
-getNum = getNum_square_p;
-//getNum = getNum_diamond_p;
-showCenter(5);
-solve(10000, true);
+function run() {
+	chosenSequence = sequences.get( document.getElementById("selSeq").value );
+	chosenCoords = coordsystems.get( document.getElementById("selCoord").value );
+	solve(1000000, false);
+	showBoard();
+}
+run();
 
 
 </script></body></html>
