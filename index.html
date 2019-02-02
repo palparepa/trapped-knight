@@ -9,7 +9,12 @@
 #mover button{font-size:200%;width:50px;height:50px;display:flex;justify-content:center}
 </style>
 
-Sequence:<select id="selSeq" onchange="run()"></select> &nbsp; Coordinates:<select id="selCoord" onchange="run()"></select><hr>
+Sequence:<select id="selSeq" onchange="run()"></select> &nbsp; Coordinates:<select id="selCoord" onchange="run()"></select>
+<br>
+Knight begins at
+<input id="iniX" type="number" value="0" required style="text-align:center;width:4em" onchange="run()">,
+<input id="iniY" type="number" value="0" required style="text-align:center;width:4em" onchange="run()">
+<hr>
 
 <table id="spiral" border="2"></table>
 <div id="result"></div>
@@ -220,15 +225,22 @@ function getNum(x,y) {
 
 var visited = null;
 function solve(max=1000000, echo=false) {
+	let posX = document.getElementById("iniX").value;
+	let posY = document.getElementById("iniY").value;
+	if (!posX.match(/^-?\d+$/)) return;
+	if (!posY.match(/^-?\d+$/)) return;
+	posX = +posX;
+	posY = +posY;
+	let iniNum = getNum(posX,posY);
+
 	let bestN, bestX, bestY;
 	let path = [];
 
-	let posX = 0, posY = 0;
 	let step = 1;
 	visited = new Set();
-	visited.add(getNum(0,0));
-	path.push(getNum(0,0));
-	if (echo) console.log(`${step}. (${posX},${posY}): ${getNum(0,0)}`);
+	visited.add(iniNum);
+	path.push(iniNum);
+	if (echo) console.log(`${step}. (${posX},${posY}): ${iniNum}`);
 
 	function tryNext(x,y) {
 		let num = getNum(x,y);
