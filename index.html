@@ -4,22 +4,33 @@
 <title>Trapped Knight</title>
 </head><body>
 <style>
-#spiral td{width:35px;height:25px;text-align:center;font-size:80%;font-weight:bold}
+#spiral td{width:25px;height:15px;text-align:center;font-size:60%;font-weight:bold}
 #mover td{text-align:center}
 #mover button{font-size:200%;width:50px;height:50px;display:flex;justify-content:center}
 </style>
 
-Sequence:<select id="selSeq" onchange="run()"></select> &nbsp; Coordinates:<select id="selCoord" onchange="run()"></select>
-<br>
-Knight begins at
-<input id="iniX" type="number" value="0" required style="text-align:center;width:4em" onchange="run()">,
-<input id="iniY" type="number" value="0" required style="text-align:center;width:4em" onchange="run()">
+<table>
+	<tr><td>Sequence:</td><td><select id="selSeq" onchange="run()"></select> <span style="cursor:pointer" onclick="showhide('tr_seqhelp')">🛈</span></td></tr>
+	<tr id="tr_seqhelp" style="display:none"><td></td><td style="font-size:70%" id="seqhelp"></td></tr>
+
+	<tr><td>Pattern:</td><td><select id="selPat" onchange="run()"></select> <span style="cursor:pointer" onclick="showhide('tr_pathelp')">🛈</span></td></tr>
+	<tr id="tr_pathelp" style="display:none"><td></td><td style="font-size:70%" id="pathelp"></td></tr>
+
+	<tr><td>Piece:</td><td><select id="selPie" onchange="run()"></select> <span style="cursor:pointer" onclick="showhide('tr_piehelp')">🛈</span></td></tr>
+	<tr id="tr_piehelp" style="display:none"><td></td><td style="font-size:70%" id="piehelp"></td></tr>
+
+	<tr><td>Initial Position:</td><td>
+		<input id="iniX" type="number" value="0" required style="text-align:center;width:4em" onchange="run()">,
+		<input id="iniY" type="number" value="0" required style="text-align:center;width:4em" onchange="run()">
+	</td></tr>
+</table>
+
 <hr>
 
 <table id="spiral" border="2"></table>
 <div id="result"></div>
 
-<div style="position:absolute;top:0;right:0;background:#eee;border:1px solid black;padding:.5em">
+<div style="position:fixed;top:0;right:0;background:#eee;border:1px solid black;padding:.5em">
 	<table id="mover">
 		<tr>
 			<td></td>
@@ -36,13 +47,23 @@ Knight begins at
 			<td></td>
 			<td><button onclick="showSize=Math.max(1,showSize-1);showBoard()">-</button></td>
 		</tr><tr>
-			<td colspan="4" id="moveCoords"></td>
+			<td colspan="4" id="centerView"></td>
 		</tr>
 	</table>
 </div>
 
 <script>
 "use strict";
+
+var MAX_PRIME = 100000;
+var MAX_MOVES = 100000;
+
+
+
+function showhide(id) {
+	let obj = document.getElementById(id);
+	obj.style.display = (obj.style.display==="none") ? "" : "none";
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -63,6 +84,7 @@ var Prime = {
 			}
 			if (!fail) break;
 		}
+		if (n>=MAX_PRIME) throw("TOO BIG");
 		this._list.push(n);
 	},
 
@@ -85,6 +107,7 @@ sequences.set("Normal", {
 	get : function(n) {
 		return n;
 	},
+	description : "Simply the Natural numbers",
 });
 
 
@@ -110,6 +133,7 @@ sequences.set("Mathatrutgers", {
 		while (!this._list[n]) this._grow();
 		return this._list[n];
 	},
+	description : "Start with 1. Then consider the next prime number 'p'. Add the next p composite numbers, then p. Repeat",
 });
 
 // returns the nth number in the mathatrutgers' reverse sequence
@@ -136,6 +160,7 @@ sequences.set("Reverse Mathatrutgers", {
 		while (!this._list[n]) this._grow();
 		return this._list[n];
 	},
+	description : "Start with 1. Then consider the next prime number 'p'. Add the next p composite numbers in reverse order, then p. Repeat",
 });
 
 sequences.set("Bad Mathatrutgers", {
@@ -157,6 +182,7 @@ sequences.set("Bad Mathatrutgers", {
 		while (!this._list[n]) this._grow();
 		return this._list[n];
 	},
+	description : "1. Next two composite numbers, then 2. Next three composite numbers, then 3. Next four composite numbers, then 5...",
 });
 
 sequences.set("Bad Reverse Mathatrutgers", {
@@ -180,51 +206,134 @@ sequences.set("Bad Reverse Mathatrutgers", {
 		while (!this._list[n]) this._grow();
 		return this._list[n];
 	},
+	description : "Same as Bad Mathatrutgers', but composite numbers are in reverse order",
 });
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var coordsystems = new Map;
+var patterns = new Map;
 
-// given a coordinate, returns the number in it. Square-shaped version
-coordsystems.set("Square", (x,y)=>{
-	let loop = Math.max(Math.abs(x),Math.abs(y));
-	let start = (2*loop-1)*(2*loop-1)+1;
+patterns.set("Square", {
+	get: function(x,y) {
+		let loop = Math.max(Math.abs(x),Math.abs(y));
+		let start = (2*loop-1)*(2*loop-1)+1;
 
-	if (!x && !y) return 1;
+		if (!x && !y) return 1;
 
-	if (x === loop && y !== loop) return start-y+loop-1;
-	if (y === -loop) return start-x+3*loop-1;
-	if (x === -loop) return start+y+5*loop-1;
-	return start+x+7*loop-1;
+		if (x === loop && y !== loop) return start-y+loop-1;
+		if (y === -loop) return start-x+3*loop-1;
+		if (x === -loop) return start+y+5*loop-1;
+		return start+x+7*loop-1;
+	},
+	description : "In a spiral, growing orthogonally <a href='https://en.wikipedia.org/wiki/Ulam_spiral'>[Ulam spiral]</a>",
 });
 
-// given a coordinate, returns the number in it. Diamond-shaped version
-coordsystems.set("Diamond", (x,y)=>{
-	let loop = Math.abs(x)+Math.abs(y);
-	let start = 4*loop*(loop-1)/2+2;
+patterns.set("Diamond", {
+	get: function(x,y) {
+		let loop = Math.abs(x)+Math.abs(y);
+		let start = 4*loop*(loop-1)/2+2;
 
-	if (!x && !y) return 1;
+		if (!x && !y) return 1;
 
-	if (x>0 && y>=0) return start+x-1;
-	if (x>0) return start+2*loop-x-1;
-	if (y<0) return start+3*loop+y-1;
-	return start+4*loop+x-1;
+		if (x>0 && y>=0) return start+x-1;
+		if (x>0) return start+2*loop-x-1;
+		if (y<0) return start+3*loop+y-1;
+		return start+4*loop+x-1;
+	},
+	description : "In a spiral, growing diagonally",
+});
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var pieces = new Map;
+
+pieces.set("Knight", {
+	clear: function() {},
+	moves: function(x,y) {
+		return [ [x+1,y+2], [x+2,y+1], [x-1,y+2], [x-2,y+1], [x+1,y-2], [x+2,y-1], [x-1,y-2], [x-2,y-1] ];
+	},
+	description : "A normal chess knight: two squares away, then one square orthogonal to it",
+});
+
+pieces.set("Long Knight", {
+	clear: function() {},
+	moves: function(x,y) {
+		return [ [x+1,y+3], [x+3,y+1], [x-1,y+3], [x-3,y+1], [x+1,y-3], [x+3,y-1], [x-1,y-3], [x-3,y-1] ];
+	},
+	description : "Three squares away, then one square orthogonal to it",
+});
+
+pieces.set("Big Knight", {
+	clear: function() {},
+	moves: function(x,y) {
+		return [ [x+2,y+3], [x+3,y+2], [x-2,y+3], [x-3,y+2], [x+2,y-3], [x+3,y-2], [x-2,y-3], [x-3,y-2] ];
+	},
+	description : "Three squares away, then two squares orthogonal to it",
+});
+
+pieces.set("FlipFlop Knight", {
+	state: false,
+	clear: function() { this.state=false },
+	moves: function(x,y) {
+		this.state = !this.state;
+		if (this.state)
+			return [ [x+2,y+1], [x-2,y+1], [x+2,y-1], [x-2,y-1] ];
+		else
+			return [ [x+1,y+2], [x-1,y+2], [x+1,y-2], [x-1,y-2] ];
+	},
+	description : "A normal chess knight, but first favors horizontal movement, then vertical",
+});
+
+pieces.set("FlopFlip Knight", {
+	state: false,
+	clear: function() { this.state=false },
+	moves: function(x,y) {
+		this.state = !this.state;
+		if (this.state)
+			return [ [x+1,y+2], [x-1,y+2], [x+1,y-2], [x-1,y-2] ];
+		else
+			return [ [x+2,y+1], [x-2,y+1], [x+2,y-1], [x-2,y-1] ];
+	},
+	description : "A normal chess knight, but first favors vertical movement, then horizontal",
+});
+
+pieces.set("King", {
+	clear: function() {},
+	moves: function(x,y) {
+		return [ [x+1,y+1], [x-1,y+1], [x+1,y-1], [x-1,y-1], [x,y+1], [x+1,y], [x,y-1], [x-1,y] ]
+	},
+	description : "A normal chess king: anywhere one square away",
+});
+
+pieces.set("Knight King", {
+	state: false,
+	clear: function() { this.state=false },
+	moves: function(x,y) {
+		this.state = !this.state;
+		if (this.state)
+			return [ [x+1,y+2], [x+2,y+1], [x-1,y+2], [x-2,y+1], [x+1,y-2], [x+2,y-1], [x-1,y-2], [x-2,y-1] ];
+		else
+			return [ [x+1,y+1], [x-1,y+1], [x+1,y-1], [x-1,y-1], [x,y+1], [x+1,y], [x,y-1], [x-1,y] ]
+	},
+	description : "First moves as a knight, then as a king",
 });
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var chosenSequence = null;
-var chosenCoords = null;
+var chosenPattern = null;
+var chosenPiece = null;
+
+// this returns the number at position x,y
 function getNum(x,y) {
-	return chosenSequence.get( chosenCoords(x,y) );
+	return chosenSequence.get( chosenPattern.get(x,y) );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var visited = null;
-function solve(max=1000000, echo=false) {
+function solve(echo=false) {
 	let posX = document.getElementById("iniX").value;
 	let posY = document.getElementById("iniY").value;
 	if (!posX.match(/^-?\d+$/)) return;
@@ -252,50 +361,53 @@ function solve(max=1000000, echo=false) {
 		bestY = y;
 	}
 
-	while (--max) {
-		bestN = bestX = bestY = 0;
-		tryNext(posX-1,posY-2);
-		tryNext(posX-1,posY+2);
-		tryNext(posX+1,posY-2);
-		tryNext(posX+1,posY+2);
-		tryNext(posX-2,posY-1);
-		tryNext(posX-2,posY+1);
-		tryNext(posX+2,posY-1);
-		tryNext(posX+2,posY+1);
-		if (!bestN) break;
-		step++;
-		posX = bestX;
-		posY = bestY;
-		visited.add(bestN);
-		path.push(bestN);
-		if (echo) console.log(`${step}. (${bestX},${bestY}): ${bestN}`);
+	let result = "still free";
+	chosenPiece.clear();
+	try {
+		while (step < MAX_MOVES) {
+			bestN = bestX = bestY = 0;
+			chosenPiece.moves(posX,posY).forEach(([x,y]) => tryNext(x,y));
+			if (!bestN) { result = "trapped"; break; }
+			step++;
+			posX = bestX;
+			posY = bestY;
+			visited.add(bestN);
+			path.push(bestN);
+			if (echo) console.log(`${step}. (${bestX},${bestY}): ${bestN}`);
+		}
+	} catch(e) {
+		result = "aborted";
 	}
 
-	let result = (bestN ? "still free" : "trapped") + ` after step #<b>${step}</b> at (${posX},${posY}): <b>${getNum(posX,posY)}</b>`;
-	document.getElementById("result").innerHTML = result + "<hr>PATH: " + path.join(", ") + (bestN ? "..." : ".");
+	result = result + ` after step #<b>${step}</b> at (${posX},${posY}): <b>${getNum(posX,posY)}</b>`;
+	document.getElementById("result").innerHTML = result + "<hr>PATH: " + path.join(", ");
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var showSize = 5;
+var showSize = 10;
 var showX = 0;
 var showY = 0;
 function showBoard() {
 	let table = document.getElementById("spiral");
 	table.innerHTML = "";
-	for (let dy=-showSize;dy<=showSize;++dy) {
-		let tr = document.createElement("tr");
-		for (let dx=-showSize;dx<=showSize;++dx) {
-			let td = document.createElement("td");
-			let n = getNum(dx+showX,dy+showY);
-			td.textContent = n;
-			if (!visited.has(n)) td.style.color = "red";
-			tr.appendChild(td);
+	try {
+		for (let dy=-showSize;dy<=showSize;++dy) {
+			let tr = document.createElement("tr");
+			for (let dx=-showSize;dx<=showSize;++dx) {
+				let td = document.createElement("td");
+				let n = getNum(dx+showX,dy+showY);
+				td.textContent = n;
+				if (!visited.has(n)) td.style.color = "red";
+				tr.appendChild(td);
+			}
+			table.appendChild(tr);
 		}
-		table.appendChild(tr);
+	} catch(e) {
+		table.innerHTML = "<tr><td>TOO BIG NUMBERS</td></tr>";
 	}
 
-	document.getElementById("moveCoords").textContent = `view centered at (${showX},${showY})`;
+	document.getElementById("centerView").textContent = `view centered at (${showX},${showY})`;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -306,18 +418,31 @@ sequences.forEach((func,name)=>{
 	opt.value = name;
 	document.getElementById("selSeq").add(opt);
 });
-coordsystems.forEach((func,name)=>{
+patterns.forEach((func,name)=>{
 	let opt = document.createElement("option");
 	opt.text = name;
 	opt.value = name;
-	document.getElementById("selCoord").add(opt);
+	document.getElementById("selPat").add(opt);
+});
+pieces.forEach((func,name)=>{
+	let opt = document.createElement("option");
+	opt.text = name;
+	opt.value = name;
+	document.getElementById("selPie").add(opt);
 });
 
 
 function run() {
 	chosenSequence = sequences.get( document.getElementById("selSeq").value );
-	chosenCoords = coordsystems.get( document.getElementById("selCoord").value );
-	solve(1000000, false);
+	document.getElementById("seqhelp").innerHTML = "<b>How the numbers are ordered:</b><br>"+chosenSequence.description;
+
+	chosenPattern = patterns.get( document.getElementById("selPat").value );
+	document.getElementById("pathelp").innerHTML = "<b>How the numbers are placed:</b><br>"+chosenPattern.description;
+
+	chosenPiece = pieces.get( document.getElementById("selPie").value );
+	document.getElementById("piehelp").innerHTML = "<b>How the knight moves:</b><br>"+chosenPiece.description;
+
+	solve(false);
 	showBoard();
 }
 run();
