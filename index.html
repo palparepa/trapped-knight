@@ -10,16 +10,29 @@
 </style>
 
 <table>
-	<tr><td>Sequence:</td><td><select id="selSeq" onchange="run()"></select> <span style="cursor:pointer" onclick="showhide('tr_seqhelp')">🛈</span></td></tr>
-	<tr id="tr_seqhelp" style="display:none"><td></td><td style="font-size:70%" id="seqhelp"></td></tr>
+	<tr><td>Sequence:</td><td style="cursor:pointer" onclick="showhide('tr_seqhelp')">🛈</td><td><select id="selSeq" onchange="run()"></select></td></tr>
+	<tr id="tr_seqhelp"style="display:none"><td></td><td></td><td style="font-size:70%" id="seqhelp"></td></tr>
 
-	<tr><td>Pattern:</td><td><select id="selPat" onchange="run()"></select> <span style="cursor:pointer" onclick="showhide('tr_pathelp')">🛈</span></td></tr>
-	<tr id="tr_pathelp" style="display:none"><td></td><td style="font-size:70%" id="pathelp"></td></tr>
+	<tr><td>Pattern:</td><td style="cursor:pointer" onclick="showhide('tr_pathelp')">🛈</td><td><select id="selPat" onchange="run()"></select></td></tr>
+	<tr id="tr_pathelp" style="display:none"><td></td><td></td><td style="font-size:70%" id="pathelp"></td></tr>
 
-	<tr><td>Piece:</td><td><select id="selPie" onchange="run()"></select> <span style="cursor:pointer" onclick="showhide('tr_piehelp')">🛈</span></td></tr>
-	<tr id="tr_piehelp" style="display:none"><td></td><td style="font-size:70%" id="piehelp"></td></tr>
+	<tr><td>Piece:</td><td style="cursor:pointer" onclick="showhide('tr_piehelp')">🛈</td><td><select id="selPie" onchange="run()"></select></td></tr>
+	<tr id="tr_piehelp" style="display:none"><td></td><td></td><td style="font-size:70%" id="piehelp"></td></tr>
 
-	<tr><td>Initial Position:</td><td>
+	<tr><td valign="top">Cross:</td><td valign="top" style="cursor:pointer" onclick="showhide('tr_crshelp')">🛈</td><td>
+		<input id="crossO" type="checkbox" checked onchange="run()"> Origin<br>
+		<input id="crossD" type="checkbox" onchange="run()"> Destination<br>
+		<input id="crossS" type="checkbox" onchange="run()"> Origin + Destination<br>
+	</td></tr>
+	<tr id="tr_crshelp" style="display:none"><td></td><td></td><td style="font-size:70%"><b>What to cross after each movement</b></td></tr>
+
+	<tr><td valign="top">Can't visit:</td><td valign="top" style="cursor:pointer" onclick="showhide('tr_forhelp')">🛈</td><td>
+		<input id="forbidD" type="checkbox" checked onchange="run()"> If Destination is crossed<br>
+		<input id="forbidS" type="checkbox" onchange="run()"> If Origin + Destination is crossed<br>
+	</td></tr>
+	<tr id="tr_forhelp" style="display:none"><td></td><td></td><td style="font-size:70%"><b>Knight can't move to a number if...</b></td></tr>
+
+	<tr><td>Initial Position:</td><td></td><td>
 		<input id="iniX" type="number" value="0" required style="text-align:center;width:4em" onchange="run()">,
 		<input id="iniY" type="number" value="0" required style="text-align:center;width:4em" onchange="run()">
 	</td></tr>
@@ -332,28 +345,35 @@ function getNum(x,y) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var visited = null;
+var crossed = new Set(); // set of 
 function solve(echo=false) {
+	let crossO = document.getElementById("crossO").checked;
+	let crossD = document.getElementById("crossD").checked;
+	let crossS = document.getElementById("crossS").checked;
+
+	let forbidD = document.getElementById("forbidD").checked;
+	let forbidS = document.getElementById("forbidS").checked;
+
 	let posX = document.getElementById("iniX").value;
 	let posY = document.getElementById("iniY").value;
 	if (!posX.match(/^-?\d+$/)) return;
 	if (!posY.match(/^-?\d+$/)) return;
 	posX = +posX;
 	posY = +posY;
-	let iniNum = getNum(posX,posY);
+	let lastNum = getNum(posX,posY);
 
 	let bestN, bestX, bestY;
 	let path = [];
 
 	let step = 1;
-	visited = new Set();
-	visited.add(iniNum);
-	path.push(iniNum);
-	if (echo) console.log(`${step}. (${posX},${posY}): ${iniNum}`);
+	crossed.clear();
+	path.push(lastNum);
+	if (echo) console.log(`${step}. (${posX},${posY}): ${lastNum}`);
 
 	function tryNext(x,y) {
 		let num = getNum(x,y);
-		if (visited.has(num)) return;
+		if (forbidD && crossed.has(num)) return;
+		if (forbidS && crossed.has(num+lastNum)) return;
 
 		if (bestN && num > bestN) return;
 		bestN = num;
@@ -371,7 +391,10 @@ function solve(echo=false) {
 			step++;
 			posX = bestX;
 			posY = bestY;
-			visited.add(bestN);
+			if (crossO) crossed.add(lastNum);
+			if (crossD) crossed.add(bestN);
+			if (crossS) crossed.add(bestN+lastNum);
+			lastNum = bestN;
 			path.push(bestN);
 			if (echo) console.log(`${step}. (${bestX},${bestY}): ${bestN}`);
 		}
@@ -398,7 +421,7 @@ function showBoard() {
 				let td = document.createElement("td");
 				let n = getNum(dx+showX,dy+showY);
 				td.textContent = n;
-				if (!visited.has(n)) td.style.color = "red";
+				if (!crossed.has(n)) td.style.color = "red";
 				tr.appendChild(td);
 			}
 			table.appendChild(tr);
@@ -442,8 +465,14 @@ function run() {
 	chosenPiece = pieces.get( document.getElementById("selPie").value );
 	document.getElementById("piehelp").innerHTML = "<b>How the knight moves:</b><br>"+chosenPiece.description;
 
-	solve(false);
-	showBoard();
+	document.getElementById("spiral").innerHTML = "";
+	document.getElementById("result").innerHTML = "";
+	window.requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
+			solve(false);
+			showBoard();
+		});
+	});
 }
 run();
 
