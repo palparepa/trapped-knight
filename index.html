@@ -126,6 +126,42 @@ sequences.set("Normal", {
 });
 
 
+sequences.set("Reversing n", {
+	_list : [0,1],
+	_n : 2,
+	_next : 2,
+	_grow : function() {
+		// add _n numbers greater than _next...
+		for (let i=this._n-1; i>=0; --i)
+			this._list.push(this._next+i);
+		this._next += this._n;
+		this._n++;
+	},
+	get : function(n) {
+		while (!this._list[n]) this._grow();
+		return this._list[n];
+	},
+	description : "One number in reverse order, next two numbers in reverse order, next three numbers in reverse order...",
+});
+
+sequences.set("Reversing n²", {
+	_list : [0,1],
+	_n : 2,
+	_next : 2,
+	_grow : function() {
+		// add _n² numbers greater than _next...
+		for (let i=(this._n*this._n)-1; i>=0; --i)
+			this._list.push(this._next+i);
+		this._next += this._n*this._n;
+		this._n++;
+	},
+	get : function(n) {
+		while (!this._list[n]) this._grow();
+		return this._list[n];
+	},
+	description : "One number in reverse order, next two² numbers in reverse order, next three² numbers in reverse order...",
+});
+
 
 // returns the nth number in the mathatrutgers' sequence
 sequences.set("Mathatrutgers", {
