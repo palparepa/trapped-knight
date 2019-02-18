@@ -34,6 +34,13 @@
 	</td></tr>
 	<tr id="tr_forhelp" style="display:none"><td></td><td></td><td style="font-size:70%"><b>Knight can't move to a number if...</b></td></tr>
 
+	<tr><td>Priority:</td><td style="cursor:pointer" onclick="showhide('tr_prihelp')">🛈</td><td><select id="selPri" onchange="run()">
+		<option value="1">Lowest Number</option>
+		<option value="2">Lowest Difference. On tie, lowest number</option>
+		<option value="3">Lowest Difference. On tie, highest number</option>
+	</select></td></tr>
+	<tr id="tr_prihelp" style="display:none"><td></td><td></td><td style="font-size:70%" id="prihelp"><b>Which number to choose each step</b></td></tr>
+
 	<tr><td>Initial Position:</td><td></td><td>
 		<input id="iniX" type="number" value="0" required style="text-align:center;width:4em" onchange="run()">,
 		<input id="iniY" type="number" value="0" required style="text-align:center;width:4em" onchange="run()">
@@ -99,7 +106,7 @@ var Prime = {
 			}
 			if (!fail) break;
 		}
-		if (n>=MAX_PRIME) throw("TOO BIG");
+		if (n>=MAX_PRIME) throw 0;
 		this._list.push(n);
 	},
 
@@ -260,7 +267,6 @@ sequences.set("Bad Reverse Mathatrutgers", {
 	description : "Same as Bad Mathatrutgers', but composite numbers are in reverse order",
 });
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var patterns = new Map;
@@ -357,6 +363,14 @@ pieces.set("King", {
 	description : "A normal chess king: anywhere one square away",
 });
 
+pieces.set("Ortho King", {
+	clear: function() {},
+	moves: function(x,y) {
+		return [ [x,y+1], [x+1,y], [x,y-1], [x-1,y] ]
+	},
+	description : "Like a chess king, but only orthogonally",
+});
+
 pieces.set("Knight King", {
 	state: false,
 	clear: function() { this.state=false },
@@ -367,7 +381,7 @@ pieces.set("Knight King", {
 		else
 			return [ [x+1,y+1], [x-1,y+1], [x+1,y-1], [x-1,y-1], [x,y+1], [x+1,y], [x,y-1], [x-1,y] ]
 	},
-	description : "First moves as a knight, then as a king",
+	description : "First moves as a knight, next move as a king",
 });
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -385,6 +399,8 @@ function getNum(x,y) {
 
 var crossed = new Set(); // set of 
 function solve(echo=false) {
+	let diff;
+
 	let crossO = document.getElementById("crossO").checked;
 	let crossD = document.getElementById("crossD").checked;
 	let crossS = document.getElementById("crossS").checked;
@@ -393,6 +409,8 @@ function solve(echo=false) {
 	let forbidD = document.getElementById("forbidD").checked;
 	let forbidS = document.getElementById("forbidS").checked;
 	let forbidR = document.getElementById("forbidR").checked;
+
+	let priority = +document.getElementById("selPri").value;
 
 	let posX = document.getElementById("iniX").value;
 	let posY = document.getElementById("iniY").value;
@@ -416,7 +434,24 @@ function solve(echo=false) {
 		if (forbidS && crossed.has(num+lastNum)) return;
 		if (forbidR && crossed.has(Math.abs(num-lastNum))) return;
 
-		if (bestN && num > bestN) return;
+		if (bestN) {
+			switch (priority) {
+				case 1:
+					if (num > bestN) return;
+					break;
+				case 2:
+					diff = Math.abs(lastNum-num) - Math.abs(lastNum-bestN);
+					if (diff > 0) return;
+					if (!diff && num > bestN) return;
+					break;
+				case 3:
+					diff = Math.abs(lastNum-num) - Math.abs(lastNum-bestN);
+					if (diff > 0) return;
+					if (!diff && num < bestN) return;
+					break;
+			}
+		}
+
 		bestN = num;
 		bestX = x;
 		bestY = y;
@@ -441,6 +476,7 @@ function solve(echo=false) {
 			if (echo) console.log(`${step}. (${bestX},${bestY}): ${bestN}`);
 		}
 	} catch(e) {
+		if (e!==0) throw e;
 		result = "aborted";
 	}
 
@@ -469,6 +505,7 @@ function showBoard() {
 			table.appendChild(tr);
 		}
 	} catch(e) {
+		if (e!==0) throw e;
 		table.innerHTML = "<tr><td>TOO BIG NUMBERS</td></tr>";
 	}
 
